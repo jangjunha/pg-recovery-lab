@@ -126,7 +126,7 @@ COMMIT;
 
 이제 psql 세션은 닫아도 됩니다.
 
-pg 서버 컨테이너에 접속해서 WAL이 잘 기록됐는지 확인해봅니다. WAL은 `/var/lib/pg-wal/` 디렉토리에 있습니다. [pg-waldump][pg-waldump] 명령과 앞서 확인한 트랜잭션 ID를 사용해서 WAL 기록을 확인합니다. (아래 `--xid=739` 부분을 자신이 확인한 트랜잭션 ID로 바꿔주세요.)
+pg 서버 컨테이너에 접속해서 WAL이 잘 기록됐는지 확인해봅니다. WAL은 `/var/lib/pg-wal/` 디렉토리에 있습니다. [`pg-waldump`][pg-waldump] 명령과 앞서 확인한 트랜잭션 ID를 사용해서 WAL 기록을 확인합니다. (아래 `--xid=739` 부분을 자신이 확인한 트랜잭션 ID로 바꿔주세요.)
 
 ```console
 user@host:~$ docker exec -it dbslab /bin/ash
