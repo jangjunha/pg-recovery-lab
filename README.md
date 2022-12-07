@@ -9,57 +9,17 @@ PostgreSQL은 사고 상황에서 데이터 무결성을 보장하기 위해 [WA
 data 파일은 커밋 전, log 파일은 커밋 후 시점에서 임의로 가져와서
 failure 상황의 디스크 이미지를 가장한 후 복구가 잘 수행되는지 확인해볼 것입니다.
 
+<br />
+
 **실습에 사용하는 파일들:**
 
 - [**init.sql**](./init.sql)
-    
-    ```sql
-    CREATE TABLE article (
-      id integer primary key,
-      title varchar(255),
-      created_at timestamp not null
-    );
-    INSERT INTO article (id, title, created_at) VALUES (
-      1, 'hello', now()
-    );
-    INSERT INTO article (id, title, created_at) VALUES (
-      2, 'initialized!', now()
-    );
-    ```
-    
 - [**Dockerfile.base**](./Dockerfile.base)
-    
-    ```dockerfile
-    FROM postgres:15-alpine
-    
-    ENV POSTGRES_HOST_AUTH_METHOD trust
-    # 기본값 디렉토리는 volume에 연결되므로 UnionFS에 쓰이지 않아서 커밋했을 때
-    # 이미지에 파일이 기록되지 않습니다. 따라서 별도 디렉토리를 만들어줍니다.
-    ENV POSTGRES_INITDB_WALDIR /var/lib/pg-wal
-    ENV PGDATA /var/lib/pg-data
-    
-    RUN mkdir -p $POSTGRES_INITDB_WALDIR
-    RUN mkdir -p $PGDATA
-    
-    # `article` 테이블과 1, 2번 article을 미리 만들어서 넣어줍니다.
-    COPY init.sql /docker-entrypoint-initdb.d/
-    ```
-    
 - [**Dockerfile.crashed**](./Dockerfile.crashed)
-    
-    ```dockerfile
-    FROM dbslab-after-commit AS committed
-    
-    FROM dbslab-before-commit
-    
-    # copy ONLY WAL files
-    COPY --from=committed $POSTGRES_INITDB_WALDIR $POSTGRES_INITDB_WALDIR
-    ```
-    
 
-## 준비
+<br />
 
-### Step 1) PostgreSQL 서버 실행시키기
+## Step 1) PostgreSQL 서버 실행시키기
 
 우선 `Dockerfile.base`를 사용해서 `dbslab-base` 라는 이름으로 PostgreSQL 서버 이미지를 만듭니다.
 
@@ -102,7 +62,9 @@ SELECT * FROM article;
 (2 rows)
 ```
 
-### Step 2) 트랜잭션 실행 중간 시점, 커밋 이후 시점 스냅샷 이미지 만들기
+<br />
+
+## Step 2) 트랜잭션 실행 중간 시점, 커밋 이후 시점 스냅샷 이미지 만들기
 
 다음과 같이 두 article을 삽입하는 하나의 트랜잭션을 수행할 것입니다.
 
@@ -194,7 +156,9 @@ user@host:~$ docker container stop dbslab
 user@host:~$ docker container rm dbslab
 ```
 
-### Step 3) Failure 발생한 이미지 만들기
+<br />
+
+## Step 3) Failure 발생한 이미지 만들기
 
 앞서 (A) 시점의 상태를 `dbslab-before-commit` 이미지로, (B) 시점의 상태를 `dbslab-after-commit` 이미지로 만들어두었습니다. `Dockerfile.crashed`를 확인해보면 `dbslab-before-commit`를 베이스로 하되, `dbslab-after-commit` 이미지에서 WAL 디렉토리만 복사해오도록 되어있습니다. 이러면 4th-article 삽입 및 커밋 작업의 로그는 쓰였지만 데이터는 output되지 않은 상황과 일치하게 됩니다.
 
@@ -204,11 +168,9 @@ user@host:~$ docker container rm dbslab
 user@host:~$ docker build -f Dockerfile.crashed -t dbslab-crashed
 ```
 
-## 문제
+<br />
 
-Failure가 발생한 컨테이너를 실행시켰을 때 어떤 복구 작업이 이루어질지 예상해보세요. 컨테이너를 실행시킨 후 서버 로그와 복구 이후 데이터를 확인해보고 예상 결과와 비교하세요.
-
-## 해설
+## Step 4) 컨테이너 실행 및 복구 확인
 
 WAL에 트랜잭션 커밋까지 로그가 남아 있으므로 4th-article 쓰기 작업부터 트랜잭션 커밋에 까지 redo를 수행할 것을 예상할 수 있습니다.
 
