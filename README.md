@@ -29,7 +29,7 @@ failure 상황의 디스크 이미지를 가장한 후 복구가 잘 수행되�
     
 - [**Dockerfile.base**](./Dockerfile.base)
     
-    ```docker
+    ```dockerfile
     FROM postgres:15-alpine
     
     ENV POSTGRES_HOST_AUTH_METHOD trust
@@ -47,7 +47,7 @@ failure 상황의 디스크 이미지를 가장한 후 복구가 잘 수행되�
     
 - [**Dockerfile.crashed**](./Dockerfile.crashed)
     
-    ```docker
+    ```dockerfile
     FROM dbslab-after-commit AS committed
     
     FROM dbslab-before-commit
@@ -64,7 +64,7 @@ failure 상황의 디스크 이미지를 가장한 후 복구가 잘 수행되�
 우선 `Dockerfile.base`를 사용해서 `dbslab-base` 라는 이름으로 PostgreSQL 서버 이미지를 만듭니다.
 
 ```console
-$ docker build -f Dockerfile.base -t dbslab-base
+user@host:~$ docker build -f Dockerfile.base -t dbslab-base
 ```
 
 해당 이미지에는 다음 디렉토리를 데이터, WAL 디렉토리로 사용하도록 설정되어 있습니다.
@@ -77,17 +77,15 @@ $ docker build -f Dockerfile.base -t dbslab-base
 앞서 만든 이미지를 가지고 `dbslab` 이라는 이름으로 서버 컨테이너를 실행시킵니다.
 
 ```console
-$ docker run -d --name dbslab dbslab-base
+user@host:~$ docker run -d --name dbslab dbslab-base
 ```
 
 이제 `docker exec` 명령을 통해 컨테이너에서 명령을 실행시키거나 쉘에 접속할 수 있습니다.
 
 ```console
-# ash 쉘 접속
-$ docker exec -it dbslab /bin/ash
+user@host:~$ docker exec -it dbslab /bin/ash  # ash 쉘 접속
 
-# psql 쉘 접속
-$ docker exec -it dbslab psql -U postgres
+user@host:~$ docker exec -it dbslab psql -U postgres  # psql 쉘 접속
 ```
 
 article 테이블과 2개의 article이 이미 만들어져 있습니다.
@@ -122,7 +120,7 @@ SELECT * FROM article;
 우선 앞서 실행한 데이터베이스에 접속하고 트랜잭션을 수행합니다.
 
 ```console
-$ docker exec -it dbslab psql -U postgres
+user@host:~$ docker exec -it dbslab psql -U postgres
 ```
 
 ```sql
@@ -149,7 +147,7 @@ SELECT txid_current();
 다른 창에서 현재 컨테이너의 상태를 `dbslab-before-commit` 이라는 이름의 이미지로 만듭니다. 이 이미지는 (A) 시점의 스냅샷일 것입니다.
 
 ```console
-$ docker commit dbslab dbslab-before-commit
+user@host:~$ docker commit dbslab dbslab-before-commit
 ```
 
 다시 psql 세션으로 돌아와서 4th-article을 쓰고 트랜잭션을 마칩니다.
@@ -169,11 +167,10 @@ COMMIT;
 pg 서버 컨테이너에 접속해서 WAL이 잘 기록됐는지 확인해봅니다. WAL은 `/var/lib/pg-wal/` 디렉토리에 있습니다. [pg-waldump][pg-waldump] 명령과 앞서 확인한 트랜잭션 ID를 사용해서 WAL 기록을 확인합니다. (아래 `--xid=739` 부분을 자신이 확인한 트랜잭션 ID로 바꿔주세요.)
 
 ```console
-$ docker exec -it dbslab /bin/ash
+user@host:~$ docker exec -it dbslab /bin/ash
 
-$ cd /var/lib/pg-wal/
-
-$ pg_waldump 000000010000000000000001 --xid=739
+root@container:~ # cd /var/lib/pg-wal/
+root@container:/var/lib/pg-wal # pg_waldump 000000010000000000000001 --xid=739
 rmgr: Heap        len (rec/tot):     54/   258, tx:        739, lsn: 0/01560D08, prev 0/01560CD0, desc: INSERT off 3 flags 0x00, blkref #0: rel 1663/5/16384 blk 0 FPW
 rmgr: Btree       len (rec/tot):     53/   153, tx:        739, lsn: 0/01560E10, prev 0/01560D08, desc: INSERT_LEAF off 3, blkref #0: rel 1663/5/16387 blk 1 FPW
 rmgr: Heap        len (rec/tot):     95/    95, tx:        739, lsn: 0/01560EE8, prev 0/01560EB0, desc: INSERT off 4 flags 0x00, blkref #0: rel 1663/5/16384 blk 0
@@ -187,14 +184,14 @@ pg_waldump: error: error in WAL record at 0/1561098: invalid record length at 0/
 이제 커밋 후 시점(B)의 이미지를 만듭니다.
 
 ```console
-$ docker commit dbslab dbslab-after-commit
+user@host:~$ docker commit dbslab dbslab-after-commit
 ```
 
 이미지를 만들 때 사용한 컨테이너는 더이상 필요하지 않으니 지워도 됩니다.
 
 ```console
-$ docker container stop dbslab
-$ docker container rm dbslab
+user@host:~$ docker container stop dbslab
+user@host:~$ docker container rm dbslab
 ```
 
 ### Step 3) Failure 발생한 이미지 만들기
@@ -204,7 +201,7 @@ $ docker container rm dbslab
 `docker build` 명령을 사용해서 이미지를 빌드하고 `dbslab-crashed`라고 이름붙이겠습니다.
 
 ```console
-$ docker build -f Dockerfile.crashed -t dbslab-crashed
+user@host:~$ docker build -f Dockerfile.crashed -t dbslab-crashed
 ```
 
 ## 문제
@@ -218,13 +215,13 @@ WAL에 트랜잭션 커밋까지 로그가 남아 있으므로 4th-article 쓰�
 다음 명령으로 서버를 실행시킵니다. 복구 작업이 수행됩니다.
 
 ```console
-$ docker run -d --name dbslab-recovery dbslab-crashed
+user@host:~$ docker run -d --name dbslab-recovery dbslab-crashed
 ```
 
 `docker logs` 명령어로 컨테이너 로그를 확인해봅니다. 비정상 종료로 복구를 시작한다는 내용과 redo를 수행한다는 내용의 로그를 확인할 수 있습니다.
 
 ```console
-$ docker logs dbslab-recovery
+user@host:~$ docker logs dbslab-recovery
 ```
 
 ```
@@ -240,7 +237,7 @@ $ docker logs dbslab-recovery
 DB에 접속해서 `article` 테이블도 확인해봅니다.
 
 ```console
-$ docker exec -it dbslab-recovery psql -U postgres
+user@host:~$ docker exec -it dbslab-recovery psql -U postgres
 ```
 
 ```sql
