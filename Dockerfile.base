@@ -1,0 +1,13 @@
+FROM postgres:15-alpine
+
+ENV POSTGRES_HOST_AUTH_METHOD trust
+# 기본값 디렉토리는 volume에 연결되므로 UnionFS에 쓰이지 않아서 커밋했을 때
+# 이미지에 파일이 기록되지 않습니다. 따라서 별도 디렉토리를 만들어줍니다.
+ENV POSTGRES_INITDB_WALDIR /var/lib/pg-wal
+ENV PGDATA /var/lib/pg-data
+
+RUN mkdir -p $POSTGRES_INITDB_WALDIR
+RUN mkdir -p $PGDATA
+
+# `article` 테이블과 1, 2번 article을 미리 만들어서 넣어줍니다.
+COPY init.sql /docker-entrypoint-initdb.d/

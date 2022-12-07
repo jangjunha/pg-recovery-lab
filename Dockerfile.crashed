@@ -1,0 +1,6 @@
+FROM dbslab-after-commit AS committed
+
+FROM dbslab-before-commit
+
+# copy ONLY WAL files
+COPY --from=committed $POSTGRES_INITDB_WALDIR $POSTGRES_INITDB_WALDIR
